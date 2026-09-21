@@ -1,0 +1,32 @@
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python (backend) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+backend/venv/
+.pytest_cache/
+.ruff_cache/
+*.log
+
+# --- Node (frontend) ---
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Claude Code ---
+.claude/

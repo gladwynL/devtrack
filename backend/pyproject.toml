@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: FastAPI's `Depends(...)` as a default argument is the idiomatic
+# dependency-injection pattern, not a bug.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
