@@ -56,3 +56,27 @@ def _reset_database() -> Generator[None, None, None]:
 def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def db_session() -> Generator[Session, None, None]:
+    """Direct access to the test database, for assertions the API can't expose (e.g. stored hashes)."""
+    db = _TestSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def register_and_login(
+    client: TestClient, email: str, display_name: str, password: str = "password123"
+) -> tuple[dict, dict]:
+    """Registers a user, logs in, and returns (user dict, auth headers)."""
+    client.post(
+        "/api/auth/register",
+        json={"email": email, "display_name": display_name, "password": password},
+    )
+    login_response = client.post("/api/auth/login", json={"email": email, "password": password})
+    headers = {"Authorization": f"Bearer {login_response.json()['access_token']}"}
+    me = client.get("/api/auth/me", headers=headers).json()
+    return me, headers

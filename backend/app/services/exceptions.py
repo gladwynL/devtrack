@@ -8,3 +8,11 @@ class ConflictError(Exception):
 
 class ValidationError(Exception):
     """Raised when a request violates a business rule. Mapped to HTTP 400."""
+
+
+class AuthenticationError(Exception):
+    """Raised when credentials or a token are missing or invalid. Mapped to HTTP 401."""
+
+
+class AuthorizationError(Exception):
+    """Raised when an authenticated user lacks permission for an action. Mapped to HTTP 403."""

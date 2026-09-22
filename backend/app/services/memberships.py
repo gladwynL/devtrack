@@ -7,12 +7,16 @@ from sqlalchemy.orm import Session
 from app.models.membership import ProjectMembership
 from app.models.user import User
 from app.schemas.membership import MembershipCreate
-from app.services.exceptions import ConflictError, NotFoundError, ValidationError
-from app.services.projects import get_project
+from app.services.exceptions import AuthorizationError, ConflictError, NotFoundError, ValidationError
+from app.services.projects import get_project, get_project_for_member
 
 
-def add_member(db: Session, project_id: uuid.UUID, data: MembershipCreate) -> ProjectMembership:
-    get_project(db, project_id)  # 404 if the project does not exist
+def add_member(
+    db: Session, project_id: uuid.UUID, acting_user_id: uuid.UUID, data: MembershipCreate
+) -> ProjectMembership:
+    project = get_project(db, project_id)  # 404 if the project does not exist
+    if project.owner_id != acting_user_id:
+        raise AuthorizationError("Only the project owner can add members.")
 
     user = db.get(User, data.user_id)
     if user is None:
@@ -29,8 +33,8 @@ def add_member(db: Session, project_id: uuid.UUID, data: MembershipCreate) -> Pr
     return membership
 
 
-def list_members(db: Session, project_id: uuid.UUID) -> list[ProjectMembership]:
-    get_project(db, project_id)  # 404 if the project does not exist
+def list_members(db: Session, project_id: uuid.UUID, acting_user_id: uuid.UUID) -> list[ProjectMembership]:
+    get_project_for_member(db, project_id, acting_user_id)  # 404/403
     stmt = (
         select(ProjectMembership)
         .where(ProjectMembership.project_id == project_id)
@@ -39,9 +43,10 @@ def list_members(db: Session, project_id: uuid.UUID) -> list[ProjectMembership]:
     return list(db.scalars(stmt))
 
 
-def remove_member(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    project = get_project(db, project_id)
-
+def remove_member(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, acting_user_id: uuid.UUID) -> None:
+    project = get_project(db, project_id)  # 404 if the project does not exist
+    if project.owner_id != acting_user_id:
+        raise AuthorizationError("Only the project owner can remove members.")
     if project.owner_id == user_id:
         raise ValidationError("The project owner cannot be removed from the project.")
 
@@ -55,11 +60,3 @@ def remove_member(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> Non
 
     db.delete(membership)
     db.commit()
-
-
-def is_project_member(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    stmt = select(ProjectMembership.id).where(
-        ProjectMembership.project_id == project_id,
-        ProjectMembership.user_id == user_id,
-    )
-    return db.scalar(stmt) is not None

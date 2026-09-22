@@ -4,7 +4,13 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.services.exceptions import ConflictError, NotFoundError, ValidationError
+from app.services.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 
 settings = get_settings()
 
@@ -36,3 +42,13 @@ def handle_conflict(request: Request, exc: ConflictError) -> JSONResponse:
 @app.exception_handler(ValidationError)
 def handle_validation_error(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(AuthenticationError)
+def handle_authentication_error(request: Request, exc: AuthenticationError) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": str(exc)}, headers={"WWW-Authenticate": "Bearer"})
+
+
+@app.exception_handler(AuthorizationError)
+def handle_authorization_error(request: Request, exc: AuthorizationError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})

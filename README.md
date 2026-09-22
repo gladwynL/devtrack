@@ -5,9 +5,10 @@ full-stack application in the spirit of tools like Jira or Linear.
 
 ## Project Status
 
-**Early development.** This repository currently contains only the development foundation:
-a running backend and frontend skeleton, database infrastructure, and tooling. No application
-features (authentication, projects, issues, comments, dashboards) have been implemented yet.
+**Early development.** The backend has a working domain API for users, projects, project
+memberships, and issues, plus JWT-based authentication and authorization (see below). The
+frontend is still the Phase 0 skeleton — no application screens have been built yet, and
+there is no UI for any of this. Comments, dashboards, and deployment are not implemented.
 
 ## Planned Technology Stack
 
@@ -57,6 +58,22 @@ The backend follows a layered structure to keep concerns separated:
 
 Configuration is environment-variable-driven on both sides; no secrets are committed to the
 repository (see `.env.example`).
+
+## Authentication
+
+The API uses password-based registration/login and short-lived JWT bearer tokens:
+
+- `POST /api/auth/register` — create an account (email, display name, password)
+- `POST /api/auth/login` — exchange credentials for an access token
+- `GET /api/auth/me` — resolve the current user from a bearer token
+
+Passwords are hashed with Argon2 (via `pwdlib`) and never stored or returned in plaintext.
+Protected endpoints require an `Authorization: Bearer <token>` header. Project- and
+issue-level access is scoped to project membership; only a project's owner can update or
+delete it, or add/remove members. `JWT_SECRET_KEY`, `JWT_ALGORITHM`, and
+`JWT_ACCESS_TOKEN_EXPIRE_MINUTES` are configured via environment variables — see
+`.env.example`. The backend ships with an insecure development default secret key so local
+setup works without a `.env` file; any real deployment must override it.
 
 ## Local Development Prerequisites
 

@@ -10,8 +10,8 @@ class ProjectBase(BaseModel):
 
 
 class ProjectCreate(ProjectBase):
-    # No authentication yet, so the owner is supplied explicitly.
-    owner_id: uuid.UUID
+    # Owner is derived from the authenticated user, never client-supplied.
+    pass
 
 
 class ProjectUpdate(BaseModel):

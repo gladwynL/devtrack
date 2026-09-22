@@ -15,8 +15,8 @@ class IssueBase(BaseModel):
 
 
 class IssueCreate(IssueBase):
-    # No authentication yet, so the creator is supplied explicitly.
-    created_by_id: uuid.UUID
+    # Creator is derived from the authenticated user, never client-supplied.
+    pass
 
 
 class IssueUpdate(BaseModel):
