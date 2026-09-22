@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.services.exceptions import ConflictError, NotFoundError, ValidationError
 
 settings = get_settings()
 
@@ -17,3 +19,20 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+# Service-layer exceptions are translated to HTTP responses here so route
+# handlers can stay thin and simply call into services.
+@app.exception_handler(NotFoundError)
+def handle_not_found(request: Request, exc: NotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(ConflictError)
+def handle_conflict(request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(ValidationError)
+def handle_validation_error(request: Request, exc: ValidationError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})

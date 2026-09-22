@@ -2,6 +2,9 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+# Importing app.models has the side effect of registering every model class
+# on Base.metadata, which is required for autogenerate to see them.
+import app.models  # noqa: E402,F401
 from alembic import context
 from app.core.config import get_settings
 from app.db.session import Base
@@ -19,8 +22,7 @@ if config.config_file_name is not None:
 # a static value in alembic.ini.
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
-# Model metadata for 'autogenerate' support. No domain models exist yet
-# in Phase 0, so this currently produces empty migrations.
+# Model metadata for 'autogenerate' support.
 target_metadata = Base.metadata
 
 
