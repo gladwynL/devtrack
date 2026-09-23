@@ -5,10 +5,10 @@ full-stack application in the spirit of tools like Jira or Linear.
 
 ## Project Status
 
-**Early development.** The backend has a working domain API for users, projects, project
-memberships, and issues, plus JWT-based authentication and authorization (see below). The
-frontend is still the Phase 0 skeleton — no application screens have been built yet, and
-there is no UI for any of this. Comments, dashboards, and deployment are not implemented.
+**Early development, but usable end-to-end.** You can register, log in, create projects,
+manage project members, and create/edit/assign issues entirely through the web UI, backed by
+a JWT-authenticated REST API. Comments, activity history, analytics, advanced search, and
+deployment/CI are not implemented yet.
 
 ## Planned Technology Stack
 
@@ -75,6 +75,27 @@ delete it, or add/remove members. `JWT_SECRET_KEY`, `JWT_ALGORITHM`, and
 `.env.example`. The backend ships with an insecure development default secret key so local
 setup works without a `.env` file; any real deployment must override it.
 
+## Frontend
+
+A single-page React app provides the full authenticated workflow: registration, login,
+logout, a project dashboard, project detail (with member management for owners), and issue
+creation/editing/assignment. Routing is handled by React Router; unauthenticated visitors are
+redirected to `/login`, and already-authenticated visitors are kept off `/login`/`/register`.
+
+- **Session**: on login/register, the API's JWT is stored in `localStorage` and attached as a
+  `Bearer` token to every subsequent request. On load, the app calls `GET /api/auth/me` to
+  restore the session; an invalid or expired token clears itself and returns the user to
+  `/login`. The token is never put in a URL or logged to the console.
+- **API client**: `src/api/client.ts` centralizes the base URL (`VITE_API_BASE_URL`, see
+  `frontend/.env.example`), auth headers, and JSON/error parsing, so feature code just calls
+  typed functions like `createIssue(projectId, values)`.
+- **Authorization UX**: the frontend hides owner-only controls (edit project, add/remove
+  member) from non-owners and reflects project membership in what's shown, but the backend
+  remains the source of truth — every rule is enforced there regardless of what the UI shows.
+- Structure: `src/api/` (HTTP calls), `src/features/<domain>/` (forms and domain UI),
+  `src/pages/` (routed pages), `src/components/` (shared UI), `src/types/` (API-aligned
+  domain types), `src/hooks/` (small reusable hooks).
+
 ## Local Development Prerequisites
 
 - Python 3.12+
@@ -117,7 +138,9 @@ setup works without a `.env` file; any real deployment must override it.
    npm run dev
    ```
 
-   The app will be available at `http://localhost:5173`.
+   The app will be available at `http://localhost:5173` and defaults to talking to the API at
+   `http://localhost:8000`. To point it elsewhere, copy `frontend/.env.example` to
+   `frontend/.env.local` and set `VITE_API_BASE_URL`.
 
 ## Running Tests
 
