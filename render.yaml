@@ -1,0 +1,71 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys DevTrack as three Render resources:
+#   - devtrack-postgres: managed PostgreSQL
+#   - devtrack-backend:  the FastAPI API, built from backend/Dockerfile
+#   - devtrack-frontend: the React SPA, built as a static site (no server
+#     container needed for static files on Render)
+#
+# This file describes infrastructure only. It has never been applied — see
+# the README "Deployment" section for the exact manual steps required
+# (creating a Render account/Blueprint, and running migrations once via
+# `docker compose run --rm migrate`-equivalent against the Render database).
+#
+# Migrations are NOT run automatically by either service here — see
+# backend/Dockerfile and the README for why, and for the exact command to
+# run them against this database after each deploy that changes the schema.
+
+databases:
+  - name: devtrack-postgres
+    databaseName: devtrack
+    user: devtrack
+    plan: free
+
+services:
+  - type: web
+    name: devtrack-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /ready
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devtrack-postgres
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      # Generated once by Render at first deploy and kept stable across
+      # redeploys; never committed here.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      # Must be updated to the real devtrack-frontend URL Render assigns
+      # after the first deploy (see README) — a Blueprint can't reference
+      # a sibling static site's URL before it exists.
+      - key: CORS_ORIGINS
+        value: '["https://devtrack-frontend.onrender.com"]'
+
+  - type: web
+    name: devtrack-frontend
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: frontend/dist
+    rootDir: frontend
+    envVars:
+      # Baked into the JS bundle at Render's build time (see
+      # frontend/Dockerfile for why this can't be a runtime env var).
+      # Must be updated to the real devtrack-backend URL after first deploy.
+      - key: VITE_API_BASE_URL
+        value: https://devtrack-backend.onrender.com
+    routes:
+      # SPA fallback, equivalent to nginx.conf's try_files rule.
+      - type: rewrite
+        source: /*
+        destination: /index.html

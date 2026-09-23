@@ -14,7 +14,7 @@ from app.services.exceptions import (
 
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 app.add_middleware(
     CORSMiddleware,
