@@ -1,6 +1,7 @@
 from app.models.issue import Issue
+from app.models.issue_activity import IssueActivity
 from app.models.membership import ProjectMembership
 from app.models.project import Project
 from app.models.user import User
 
-__all__ = ["Issue", "Project", "ProjectMembership", "User"]
+__all__ = ["Issue", "IssueActivity", "Project", "ProjectMembership", "User"]

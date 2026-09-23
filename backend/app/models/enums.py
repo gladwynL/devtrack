@@ -17,3 +17,12 @@ class IssuePriority(enum.StrEnum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+
+class IssueActivityEventType(enum.StrEnum):
+    CREATED = "created"
+    TITLE_CHANGED = "title_changed"
+    DESCRIPTION_CHANGED = "description_changed"
+    STATUS_CHANGED = "status_changed"
+    PRIORITY_CHANGED = "priority_changed"
+    ASSIGNEE_CHANGED = "assignee_changed"

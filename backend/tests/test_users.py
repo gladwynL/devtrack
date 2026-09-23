@@ -93,3 +93,11 @@ def test_delete_user_restricted_while_owning_a_project(client: TestClient) -> No
     response = client.delete(f"/api/users/{owner['id']}", headers=owner_headers)
 
     assert response.status_code == 409
+
+
+def test_list_users_pagination_query_params_validated(client: TestClient) -> None:
+    _, headers = register_and_login(client, "mia@example.com", "Mia")
+
+    assert client.get("/api/users?offset=-1", headers=headers).status_code == 422
+    assert client.get("/api/users?limit=0", headers=headers).status_code == 422
+    assert client.get("/api/users?limit=1000", headers=headers).status_code == 422

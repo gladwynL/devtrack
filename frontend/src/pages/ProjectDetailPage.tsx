@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthContext'
 import { ApiError } from '../api/client'
-import { getProject, updateProject } from '../api/projects'
+import { deleteProject, getProject, updateProject } from '../api/projects'
 import { addMember, listMembers, removeMember } from '../api/memberships'
 import { listUsers } from '../api/users'
 import { createIssue, deleteIssue, listProjectIssues, updateIssue } from '../api/issues'
@@ -15,11 +15,22 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { EmptyState } from '../components/EmptyState'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ProjectForm } from '../features/projects/ProjectForm'
 import { MemberList } from '../features/members/MemberList'
 import { AddMemberForm } from '../features/members/AddMemberForm'
 import { IssueRow } from '../features/issues/IssueRow'
 import { IssueForm } from '../features/issues/IssueForm'
+import { IssueFilterBar } from '../features/issues/IssueFilterBar'
+import { IssueActivityModal } from '../features/issues/IssueActivityModal'
+import {
+  DEFAULT_ISSUE_FILTERS,
+  DEFAULT_ISSUE_SORT,
+  filterIssues,
+  sortIssues,
+  type IssueFilters,
+  type IssueSortOption,
+} from '../features/issues/issueFiltering'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -39,7 +50,18 @@ export function ProjectDetailPage() {
 
   const [creatingIssue, setCreatingIssue] = useState(false)
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null)
+  const [viewingActivityIssue, setViewingActivityIssue] = useState<Issue | null>(null)
+
+  const [confirmDeleteIssue, setConfirmDeleteIssue] = useState<Issue | null>(null)
   const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null)
+  const [deleteIssueError, setDeleteIssueError] = useState<string | null>(null)
+
+  const [confirmDeleteProject, setConfirmDeleteProject] = useState(false)
+  const [deletingProject, setDeletingProject] = useState(false)
+  const [deleteProjectError, setDeleteProjectError] = useState<string | null>(null)
+
+  const [filters, setFilters] = useState<IssueFilters>(DEFAULT_ISSUE_FILTERS)
+  const [sort, setSort] = useState<IssueSortOption>(DEFAULT_ISSUE_SORT)
 
   const load = useCallback(async () => {
     if (!projectId) return
@@ -80,6 +102,10 @@ export function ProjectDetailPage() {
     () => users.filter((u) => !memberUserIds.has(u.id)),
     [users, memberUserIds],
   )
+  const visibleIssues = useMemo(
+    () => sortIssues(filterIssues(issues, filters), sort),
+    [issues, filters, sort],
+  )
 
   const isOwner = Boolean(project && user && project.owner_id === user.id)
 
@@ -88,6 +114,19 @@ export function ProjectDetailPage() {
     const updated = await updateProject(projectId, values)
     setProject(updated)
     setEditingProject(false)
+  }
+
+  async function handleConfirmDeleteProject() {
+    if (!projectId) return
+    setDeletingProject(true)
+    setDeleteProjectError(null)
+    try {
+      await deleteProject(projectId)
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      setDeleteProjectError(err instanceof ApiError ? err.message : 'Could not delete project.')
+      setDeletingProject(false)
+    }
   }
 
   async function handleAddMember(userId: string) {
@@ -120,12 +159,17 @@ export function ProjectDetailPage() {
     setEditingIssue(null)
   }
 
-  async function handleDeleteIssue(issueId: string) {
-    if (!window.confirm('Delete this issue? This cannot be undone.')) return
+  async function handleConfirmDeleteIssue() {
+    if (!confirmDeleteIssue) return
+    const issueId = confirmDeleteIssue.id
     setDeletingIssueId(issueId)
+    setDeleteIssueError(null)
     try {
       await deleteIssue(issueId)
       setIssues((prev) => prev.filter((issue) => issue.id !== issueId))
+      setConfirmDeleteIssue(null)
+    } catch (err) {
+      setDeleteIssueError(err instanceof ApiError ? err.message : 'Could not delete issue.')
     } finally {
       setDeletingIssueId(null)
     }
@@ -155,9 +199,14 @@ export function ProjectDetailPage() {
           </p>
         </div>
         {isOwner && (
-          <Button type="button" variant="secondary" onClick={() => setEditingProject(true)}>
-            Edit project
-          </Button>
+          <div className="page-header-actions">
+            <Button type="button" variant="secondary" onClick={() => setEditingProject(true)}>
+              Edit project
+            </Button>
+            <Button type="button" variant="danger" onClick={() => setConfirmDeleteProject(true)}>
+              Delete project
+            </Button>
+          </div>
         )}
       </div>
 
@@ -187,20 +236,37 @@ export function ProjectDetailPage() {
             New issue
           </Button>
         </div>
+
+        {issues.length > 0 && (
+          <IssueFilterBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            sort={sort}
+            onSortChange={setSort}
+            members={memberUsers}
+          />
+        )}
+
         {issues.length === 0 ? (
           <EmptyState
             title="No issues yet"
             description="Create the first issue to start tracking work."
           />
+        ) : visibleIssues.length === 0 ? (
+          <EmptyState
+            title="No issues match your filters"
+            description="Try a different search term or clear the filters above."
+          />
         ) : (
           <ul className="issue-list">
-            {issues.map((issue) => (
+            {visibleIssues.map((issue) => (
               <IssueRow
                 key={issue.id}
                 issue={issue}
                 assignee={issue.assignee_id ? (usersById.get(issue.assignee_id) ?? null) : null}
                 onEdit={() => setEditingIssue(issue)}
-                onDelete={() => handleDeleteIssue(issue.id)}
+                onDelete={() => setConfirmDeleteIssue(issue)}
+                onViewActivity={() => setViewingActivityIssue(issue)}
                 deleting={deletingIssueId === issue.id}
               />
             ))}
@@ -217,6 +283,22 @@ export function ProjectDetailPage() {
             onCancel={() => setEditingProject(false)}
           />
         </Modal>
+      )}
+
+      {confirmDeleteProject && (
+        <ConfirmDialog
+          title="Delete project"
+          message={`Delete "${project.name}"? This permanently removes the project, its members, and all of its issues. This cannot be undone.`}
+          confirmLabel="Delete project"
+          destructive
+          confirming={deletingProject}
+          error={deleteProjectError}
+          onConfirm={handleConfirmDeleteProject}
+          onCancel={() => {
+            setConfirmDeleteProject(false)
+            setDeleteProjectError(null)
+          }}
+        />
       )}
 
       {showAddMember && (
@@ -252,6 +334,31 @@ export function ProjectDetailPage() {
             onCancel={() => setEditingIssue(null)}
           />
         </Modal>
+      )}
+
+      {viewingActivityIssue && (
+        <IssueActivityModal
+          issueId={viewingActivityIssue.id}
+          issueTitle={viewingActivityIssue.title}
+          usersById={usersById}
+          onClose={() => setViewingActivityIssue(null)}
+        />
+      )}
+
+      {confirmDeleteIssue && (
+        <ConfirmDialog
+          title="Delete issue"
+          message={`Delete "${confirmDeleteIssue.title}"? This cannot be undone.`}
+          confirmLabel="Delete issue"
+          destructive
+          confirming={deletingIssueId === confirmDeleteIssue.id}
+          error={deleteIssueError}
+          onConfirm={handleConfirmDeleteIssue}
+          onCancel={() => {
+            setConfirmDeleteIssue(null)
+            setDeleteIssueError(null)
+          }}
+        />
       )}
     </div>
   )

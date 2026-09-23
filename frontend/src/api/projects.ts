@@ -19,3 +19,7 @@ export function updateProject(
 ): Promise<Project> {
   return apiRequest<Project>(`/api/projects/${projectId}`, { method: 'PATCH', body: input })
 }
+
+export function deleteProject(projectId: string): Promise<void> {
+  return apiRequest<void>(`/api/projects/${projectId}`, { method: 'DELETE' })
+}

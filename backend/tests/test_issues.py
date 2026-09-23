@@ -211,3 +211,13 @@ def test_create_issue_missing_title_returns_validation_error(client: TestClient)
     response = client.post(f"/api/projects/{project['id']}/issues", json={}, headers=headers)
 
     assert response.status_code == 422
+
+
+def test_list_project_issues_pagination_query_params_validated(client: TestClient) -> None:
+    _, headers = register_and_login(client, "owner16@example.com", "Owner")
+    project = _create_project(client, headers)
+
+    base = f"/api/projects/{project['id']}/issues"
+    assert client.get(f"{base}?offset=-1", headers=headers).status_code == 422
+    assert client.get(f"{base}?limit=0", headers=headers).status_code == 422
+    assert client.get(f"{base}?limit=1000", headers=headers).status_code == 422

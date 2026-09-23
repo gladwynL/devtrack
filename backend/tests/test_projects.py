@@ -116,3 +116,24 @@ def test_owner_can_delete_project(client: TestClient) -> None:
 
     response = client.get(f"/api/projects/{project['id']}", headers=headers)
     assert response.status_code == 404
+
+
+def test_non_owner_cannot_delete_project(client: TestClient) -> None:
+    _, owner_headers = register_and_login(client, "owner10@example.com", "Owner Ten")
+    project = client.post("/api/projects", json={"name": "Protected"}, headers=owner_headers).json()
+    member, member_headers = register_and_login(client, "member10@example.com", "Member Ten")
+    client.post(
+        f"/api/projects/{project['id']}/members", json={"user_id": member["id"]}, headers=owner_headers
+    )
+
+    response = client.delete(f"/api/projects/{project['id']}", headers=member_headers)
+
+    assert response.status_code == 403
+
+
+def test_list_projects_pagination_query_params_validated(client: TestClient) -> None:
+    _, headers = register_and_login(client, "owner11@example.com", "Owner Eleven")
+
+    assert client.get("/api/projects?offset=-1", headers=headers).status_code == 422
+    assert client.get("/api/projects?limit=0", headers=headers).status_code == 422
+    assert client.get("/api/projects?limit=1000", headers=headers).status_code == 422

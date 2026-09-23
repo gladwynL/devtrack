@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -108,11 +108,17 @@ describe('ProjectDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'DevTrack Core' })).toBeInTheDocument()
     expect(screen.getByText('Core tracker')).toBeInTheDocument()
-    expect(screen.getByText('Alice Owner (you)')).toBeInTheDocument()
-    expect(screen.getByText('Bob Member')).toBeInTheDocument()
-    expect(screen.getByText('Fix login bug')).toBeInTheDocument()
-    expect(screen.getByText('To Do')).toBeInTheDocument()
-    expect(screen.getByText('High')).toBeInTheDocument()
+
+    const membersPanel = screen
+      .getByRole('heading', { name: 'Members' })
+      .closest('section') as HTMLElement
+    expect(within(membersPanel).getByText('Alice Owner (you)')).toBeInTheDocument()
+    expect(within(membersPanel).getByText('Bob Member')).toBeInTheDocument()
+
+    const issueRow = screen.getByText('Fix login bug').closest('li') as HTMLElement
+    expect(issueRow).toBeInTheDocument()
+    expect(within(issueRow).getByText('To Do')).toBeInTheDocument()
+    expect(within(issueRow).getByText('High')).toBeInTheDocument()
   })
 
   it('shows owner-only controls for the project owner', async () => {
@@ -179,9 +185,9 @@ describe('ProjectDetailPage', () => {
     await screen.findByText('Fix login bug')
 
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    const statusSelect = await screen.findByLabelText('Status')
-    await user.selectOptions(statusSelect, 'done')
-    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.selectOptions(within(dialog).getByLabelText('Status'), 'done')
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }))
 
     await waitFor(() => {
       expect(issuesApi.updateIssue).toHaveBeenCalledWith(
@@ -189,5 +195,170 @@ describe('ProjectDetailPage', () => {
         expect.objectContaining({ status: 'done' }),
       )
     })
+  })
+
+  it('filters issues by search text', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.listProjectIssues).mockResolvedValue([
+      buildIssues()[0],
+      {
+        ...buildIssues()[0],
+        id: 'issue-2',
+        title: 'Improve search speed',
+        description: 'queries are slow',
+      },
+    ])
+
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+    expect(screen.getByText('Improve search speed')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Search issues'), 'login')
+
+    expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    expect(screen.queryByText('Improve search speed')).not.toBeInTheDocument()
+  })
+
+  it('filters issues by status', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.listProjectIssues).mockResolvedValue([
+      buildIssues()[0],
+      { ...buildIssues()[0], id: 'issue-2', title: 'Done already', status: 'done' },
+    ])
+
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+
+    await user.selectOptions(screen.getByLabelText('Status'), 'done')
+
+    expect(screen.queryByText('Fix login bug')).not.toBeInTheDocument()
+    expect(screen.getByText('Done already')).toBeInTheDocument()
+  })
+
+  it('sorts issues by oldest first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.listProjectIssues).mockResolvedValue([
+      {
+        ...buildIssues()[0],
+        id: 'issue-new',
+        title: 'Newer issue',
+        created_at: '2026-01-05T00:00:00Z',
+      },
+      {
+        ...buildIssues()[0],
+        id: 'issue-old',
+        title: 'Older issue',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ])
+
+    renderProjectDetail(mockUser)
+    await screen.findByText('Newer issue')
+
+    await user.selectOptions(screen.getByLabelText('Sort by'), 'oldest')
+
+    const titles = screen.getAllByText(/(Newer|Older) issue/).map((el) => el.textContent)
+    expect(titles).toEqual(['Older issue', 'Newer issue'])
+  })
+
+  it('shows issue activity with readable, resolved names', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.listIssueActivity).mockResolvedValue([
+      {
+        id: 'a1',
+        issue_id: 'issue-1',
+        actor_id: mockUser.id,
+        event_type: 'created',
+        field_name: null,
+        old_value: null,
+        new_value: null,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'a2',
+        issue_id: 'issue-1',
+        actor_id: otherUser.id,
+        event_type: 'status_changed',
+        field_name: 'status',
+        old_value: 'todo',
+        new_value: 'in_progress',
+        created_at: '2026-01-02T00:00:00Z',
+      },
+    ])
+
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+
+    await user.click(screen.getByRole('button', { name: /activity/i }))
+
+    expect(await screen.findByText('Alice Owner created the issue')).toBeInTheDocument()
+    expect(
+      screen.getByText('Bob Member changed status from To Do to In Progress'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows an error state when activity fails to load', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.listIssueActivity).mockRejectedValue(new Error('Network error'))
+
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+
+    await user.click(screen.getByRole('button', { name: /activity/i }))
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+  })
+
+  it('requires confirmation before deleting an issue, and cancel keeps it', async () => {
+    const user = userEvent.setup()
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+    expect(await screen.findByRole('heading', { name: 'Delete issue' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(issuesApi.deleteIssue).not.toHaveBeenCalled()
+    expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+  })
+
+  it('deletes an issue after confirming', async () => {
+    const user = userEvent.setup()
+    vi.mocked(issuesApi.deleteIssue).mockResolvedValue(undefined)
+    renderProjectDetail(mockUser)
+    await screen.findByText('Fix login bug')
+
+    await user.click(screen.getByRole('button', { name: /^delete$/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete issue' }))
+
+    await waitFor(() => {
+      expect(issuesApi.deleteIssue).toHaveBeenCalledWith('issue-1')
+    })
+    expect(screen.queryByText('Fix login bug')).not.toBeInTheDocument()
+  })
+
+  it('lets the owner delete the project after confirming', async () => {
+    const user = userEvent.setup()
+    vi.mocked(projectsApi.deleteProject).mockResolvedValue(undefined)
+    renderProjectDetail(mockUser)
+    await screen.findByRole('heading', { name: 'DevTrack Core' })
+
+    await user.click(screen.getByRole('button', { name: /delete project/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete project' }))
+
+    await waitFor(() => {
+      expect(projectsApi.deleteProject).toHaveBeenCalledWith('project-1')
+    })
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument()
+  })
+
+  it('hides the delete project control from a non-owner', async () => {
+    renderProjectDetail(otherUser)
+    await screen.findByRole('heading', { name: 'DevTrack Core' })
+
+    expect(screen.queryByRole('button', { name: /delete project/i })).not.toBeInTheDocument()
   })
 })

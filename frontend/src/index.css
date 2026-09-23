@@ -162,6 +162,12 @@ a {
   flex-wrap: wrap;
 }
 
+.page-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* --- Buttons --- */
 
 .btn {
@@ -500,6 +506,26 @@ a {
 
 /* --- Issues --- */
 
+.issue-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-filter-bar .field {
+  margin-bottom: 0;
+  min-width: 140px;
+}
+
+.issue-filter-search {
+  flex: 1;
+  min-width: 200px;
+}
+
 .issue-list {
   list-style: none;
   margin: 0;
@@ -539,6 +565,11 @@ a {
 
 .issue-assignee {
   font-size: 13px;
+  color: var(--text-muted);
+}
+
+.issue-updated {
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -660,6 +691,46 @@ a {
   margin-bottom: 20px;
 }
 
+.confirm-message {
+  color: var(--text);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activity-text {
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.activity-time {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* --- States --- */
 
 .loading-state {
@@ -760,5 +831,24 @@ a {
 
   .member-row {
     flex-wrap: wrap;
+  }
+
+  .issue-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .issue-filter-bar .field {
+    min-width: 0;
+  }
+
+  .page-header-actions {
+    width: 100%;
+  }
+
+  .activity-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
   }
 }

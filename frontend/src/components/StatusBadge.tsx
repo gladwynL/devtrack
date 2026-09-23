@@ -1,11 +1,6 @@
+import { STATUS_LABELS } from '../constants/issue'
 import type { IssueStatus } from '../types/issue'
 
-const LABELS: Record<IssueStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-}
-
 export function StatusBadge({ status }: { status: IssueStatus }) {
-  return <span className={`badge status-${status}`}>{LABELS[status]}</span>
+  return <span className={`badge status-${status}`}>{STATUS_LABELS[status]}</span>
 }

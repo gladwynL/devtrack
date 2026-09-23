@@ -3,19 +3,7 @@ import type { IssueFormValues, IssuePriority, IssueStatus } from '../../types/is
 import type { User } from '../../types/user'
 import { Button } from '../../components/Button'
 import { ErrorMessage } from '../../components/ErrorMessage'
-
-const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
-  { value: 'todo', label: 'To Do' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-]
-
-const PRIORITY_OPTIONS: { value: IssuePriority; label: string }[] = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'critical', label: 'Critical' },
-]
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '../../constants/issue'
 
 interface IssueFormProps {
   /** Candidate assignees — must be project members. */

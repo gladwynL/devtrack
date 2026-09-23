@@ -5,10 +5,11 @@ full-stack application in the spirit of tools like Jira or Linear.
 
 ## Project Status
 
-**Early development, but usable end-to-end.** You can register, log in, create projects,
-manage project members, and create/edit/assign issues entirely through the web UI, backed by
-a JWT-authenticated REST API. Comments, activity history, analytics, advanced search, and
-deployment/CI are not implemented yet.
+**Early development, but usable end-to-end.** You can register, log in, create and delete
+projects, manage project members, and create/edit/assign/delete issues entirely through the
+web UI, backed by a JWT-authenticated REST API. Issues can be searched, filtered, and sorted,
+and each issue has a lightweight activity history (who created it, and what changed since).
+Comments, analytics, advanced search, and deployment/CI are not implemented yet.
 
 ## Planned Technology Stack
 
@@ -75,12 +76,31 @@ delete it, or add/remove members. `JWT_SECRET_KEY`, `JWT_ALGORITHM`, and
 `.env.example`. The backend ships with an insecure development default secret key so local
 setup works without a `.env` file; any real deployment must override it.
 
+## Issue Activity
+
+Each issue keeps a lightweight, append-only activity log (`GET /api/issues/{issue_id}/activity`,
+members only) recording creation and changes to title, description, status, priority, and
+assignee. It's intentionally scoped to issues, not a general-purpose audit system: description
+changes are recorded as an event without storing the actual before/after text, to avoid
+retaining large or sensitive free-form content. If a user who authored an activity entry is
+later deleted, the entry is kept with a null actor rather than being deleted itself or blocking
+the deletion.
+
+List endpoints (`/api/users`, `/api/projects`, `/api/projects/{id}/issues`,
+`/api/issues/{id}/activity`) validate `limit` (1–200) and `offset` (≥0). Issue search, filtering,
+and sorting are done client-side over a project's already-loaded issue list rather than via
+additional API round-trips — reasonable at this project's scale, and the service layer already
+takes `limit`/`offset` so it can move server-side later without an API shape change.
+
 ## Frontend
 
 A single-page React app provides the full authenticated workflow: registration, login,
-logout, a project dashboard, project detail (with member management for owners), and issue
-creation/editing/assignment. Routing is handled by React Router; unauthenticated visitors are
-redirected to `/login`, and already-authenticated visitors are kept off `/login`/`/register`.
+logout, a project dashboard, project detail (with member management and deletion for owners),
+and issue creation/editing/assignment/deletion, with search, status/priority/assignee filters,
+and sorting (newest, oldest, priority, status). Routing is handled by React Router;
+unauthenticated visitors are redirected to `/login`, and already-authenticated visitors are
+kept off `/login`/`/register`. Destructive actions (deleting an issue or a project) go through
+a shared, keyboard-accessible confirmation dialog rather than the browser's native `confirm()`.
 
 - **Session**: on login/register, the API's JWT is stored in `localStorage` and attached as a
   `Bearer` token to every subsequent request. On load, the app calls `GET /api/auth/me` to

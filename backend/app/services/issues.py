@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.issue import Issue
 from app.models.user import User
 from app.schemas.issue import IssueCreate, IssueUpdate
+from app.services import issue_activity
 from app.services.authorization import is_project_member
 from app.services.exceptions import AuthorizationError, NotFoundError, ValidationError
 from app.services.projects import get_project_for_member
@@ -27,6 +28,8 @@ def create_issue(db: Session, project_id: uuid.UUID, creator: User, data: IssueC
         created_by_id=creator.id,
     )
     db.add(issue)
+    db.flush()  # assign issue.id before recording activity
+    issue_activity.record_created(db, issue, creator.id)
     db.commit()
     db.refresh(issue)
     return issue
@@ -71,6 +74,8 @@ def update_issue(db: Session, issue_id: uuid.UUID, acting_user_id: uuid.UUID, da
         raise ValidationError(
             f"Assignee {updates['assignee_id']} must be a member of project {issue.project_id}."
         )
+
+    issue_activity.record_updates(db, issue, acting_user_id, updates)  # before mutating, to diff old values
 
     for field, value in updates.items():
         setattr(issue, field, value)
